@@ -17,18 +17,18 @@ DIFFICULTY_RANGES = {
 }
 
 
-def randomInt(difficulty):
+def generate_random_number(difficulty):
     """Return a randomly generated number from the selected difficulty level."""
     minimum, maximum = DIFFICULTY_RANGES[difficulty]
     return random.randint(minimum, maximum)
 
 
-def decideOperation():
+def choose_operation():
     """Randomly choose and return either the addition or subtraction symbol."""
     return random.choice(["+", "-"])
 
 
-def displayMenu(parent, choose_difficulty):
+def display_menu(parent, choose_difficulty):
     """Build the difficulty menu and connect each button to its selection callback."""
     ttk.Label(
         parent,
@@ -57,7 +57,7 @@ def displayMenu(parent, choose_difficulty):
         ).pack(fill="x", ipady=7, pady=5)
 
 
-def displayProblem(parent, question_text, answer_callback):
+def display_problem(parent, question_text, answer_callback):
     """Display the current arithmetic question and prepare the answer entry box."""
     question_label = ttk.Label(
         parent,
@@ -97,12 +97,12 @@ def displayProblem(parent, question_text, answer_callback):
     return question_label, answer_entry, feedback_label
 
 
-def isCorrect(user_answer, correct_answer):
+def answers_match(user_answer, correct_answer):
     """Compare the submitted answer with the solution and return whether they match."""
     return user_answer == correct_answer
 
 
-def displayResults(parent, score, replay_callback):
+def display_results(parent, score, replay_callback):
     """Display the final score and select a grade and message that match the result."""
     if score >= 90:
         grade = "A+"
@@ -220,7 +220,7 @@ class MathsQuiz:
         self.current_question = 0
         self.attempt_number = 1
         self.difficulty = None
-        displayMenu(self.main_frame, self.choose_difficulty)
+        display_menu(self.main_frame, self.choose_difficulty)
 
     def choose_difficulty(self, difficulty):
         """Start the quiz using the selected difficulty."""
@@ -239,7 +239,7 @@ class MathsQuiz:
             self.question_label,
             self.answer_entry,
             self.feedback_label,
-        ) = displayProblem(
+        ) = display_problem(
             self.main_frame,
             question_text,
             self.submit_answer,
@@ -248,9 +248,9 @@ class MathsQuiz:
 
     def new_problem(self):
         """Generate a new pair of numbers and operation, then calculate the solution."""
-        self.first_number = randomInt(self.difficulty)
-        self.second_number = randomInt(self.difficulty)
-        self.operation = decideOperation()
+        self.first_number = generate_random_number(self.difficulty)
+        self.second_number = generate_random_number(self.difficulty)
+        self.operation = choose_operation()
 
         if self.operation == "+":
             self.correct_answer = self.first_number + self.second_number
@@ -272,7 +272,7 @@ class MathsQuiz:
             self.feedback_label.config(text="Please enter a whole number.")
             return
 
-        if isCorrect(user_answer, self.correct_answer):
+        if answers_match(user_answer, self.correct_answer):
             if self.attempt_number == 1:
                 self.score += POINTS_FIRST_ATTEMPT
                 self.feedback_label.config(text="Correct!")
@@ -314,7 +314,7 @@ class MathsQuiz:
     def show_final_score(self):
         """Clear the question screen and display the final result."""
         self.clear_screen()
-        displayResults(self.main_frame, self.score, self.show_menu)
+        display_results(self.main_frame, self.score, self.show_menu)
 
 
 if __name__ == "__main__":
