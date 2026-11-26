@@ -10,6 +10,14 @@ STUDENT_DATA_FILE = Path(__file__).resolve().parent / "studentMarks.txt"
 MAXIMUM_COURSEWORK_MARK = 60
 MAXIMUM_EXAM_MARK = 100
 MAXIMUM_OVERALL_MARK = MAXIMUM_COURSEWORK_MARK + MAXIMUM_EXAM_MARK
+BACKGROUND_COLOR = "#F3ECE7"
+SIDEBAR_COLOR = "#2A1A35"
+PRIMARY_RED = "#681F32"
+PRIMARY_RED_DARK = "#4E1727"
+SECONDARY_COLOR = "#C59A82"
+TEXT_COLOR = "#2A1A35"
+MUTED_TEXT_COLOR = "#806559"
+TABLE_BORDER_COLOR = "#CDBBB1"
 
 
 @dataclass
@@ -61,7 +69,7 @@ class StudentManager:
         self.window.title("Student Record Manager")
         self.window.geometry("980x650")
         self.window.minsize(820, 560)
-        self.window.configure(bg="#EDF2F5")
+        self.window.configure(bg=BACKGROUND_COLOR)
 
         self.students: list[StudentRecord] = []
         self.load_students()
@@ -175,16 +183,16 @@ class StudentManager:
             text="STUDENT RECORD MANAGEMENT",
             font=("Consolas", 20, "bold"),
             fg="#FFFFFF",
-            bg="#123A55",
+            bg=SIDEBAR_COLOR,
             anchor="w",
             padx=18,
         )
         title.pack(fill="x", ipady=13)
 
-        main_frame = tk.Frame(self.window, bg="#EDF2F5")
+        main_frame = tk.Frame(self.window, bg=BACKGROUND_COLOR)
         main_frame.pack(fill="both", expand=True, padx=14, pady=14)
 
-        menu_frame = tk.Frame(main_frame, bg="#123A55", padx=12, pady=12)
+        menu_frame = tk.Frame(main_frame, bg=SIDEBAR_COLOR, padx=12, pady=12)
         menu_frame.pack(side="left", fill="y", padx=(0, 14))
 
         menu_options = [
@@ -206,9 +214,9 @@ class StudentManager:
                 width=23,
                 command=action,
                 font=("Segoe UI", 9, "bold"),
-                fg="#123A55",
-                bg="#D6EEF5",
-                activebackground="#A9DCE8",
+                fg=TEXT_COLOR,
+                bg=SECONDARY_COLOR,
+                activebackground="#B7846D",
                 relief="flat",
                 anchor="w",
                 padx=10,
@@ -219,7 +227,7 @@ class StudentManager:
             main_frame,
             bg="#FFFFFF",
             highlightthickness=1,
-            highlightbackground="#D7E1E8",
+            highlightbackground=TABLE_BORDER_COLOR,
         )
         output_frame.pack(side="right", fill="both", expand=True)
 
@@ -230,7 +238,7 @@ class StudentManager:
             search_frame,
             text="Quick search:",
             font=("Segoe UI", 9, "bold"),
-            fg="#123A55",
+            fg=TEXT_COLOR,
             bg="#FFFFFF",
         ).pack(side="left")
 
@@ -250,8 +258,8 @@ class StudentManager:
             command=self.search_students,
             font=("Segoe UI", 9, "bold"),
             fg="#FFFFFF",
-            bg="#087EA4",
-            activebackground="#05657F",
+            bg=PRIMARY_RED,
+            activebackground=PRIMARY_RED_DARK,
             relief="flat",
             padx=10,
             pady=4,
@@ -264,7 +272,7 @@ class StudentManager:
             header_frame,
             text="All Student Records",
             font=("Segoe UI", 15, "bold"),
-            fg="#123A55",
+            fg=TEXT_COLOR,
             bg="#FFFFFF",
             anchor="w",
         )
@@ -274,7 +282,7 @@ class StudentManager:
             header_frame,
             text="",
             font=("Segoe UI", 9),
-            fg="#5C7F91",
+            fg=MUTED_TEXT_COLOR,
             bg="#FFFFFF",
             anchor="e",
         )
@@ -304,15 +312,15 @@ class StudentManager:
         style.configure(
             "Student.Treeview",
             background="#FFFFFF",
-            foreground="#123A55",
+            foreground=TEXT_COLOR,
             fieldbackground="#FFFFFF",
             rowheight=38,
             font=("Segoe UI", 10),
         )
         style.configure(
             "Student.Treeview.Heading",
-            background="#D6EEF5",
-            foreground="#123A55",
+            background=SECONDARY_COLOR,
+            foreground=TEXT_COLOR,
             font=("Segoe UI", 9, "bold"),
         )
 
