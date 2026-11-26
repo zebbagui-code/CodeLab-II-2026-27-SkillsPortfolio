@@ -32,11 +32,12 @@ def load_jokes(filepath):
     return jokes
 
 def tell_joke():
-    """Chooses a random joke and displays its setup."""
+    """Choose a joke, avoid repeating the current joke, and display its setup."""
     global current_joke
 
-    if jokes:
-        current_joke = random.choice(jokes)
+    available_jokes = [joke for joke in jokes if joke != current_joke]
+    if available_jokes:
+        current_joke = random.choice(available_jokes)
         setup_label.config(text=current_joke[0])
         punchline_label.config(text="")
         punchline_button.config(state="normal")
@@ -51,8 +52,6 @@ def show_punchline():
 # Load the jokes and keep track of the joke currently being shown.
 jokes_file = (
     Path(__file__).resolve().parent
-    / "Assessment 1 - Skills Portfolio"
-    / "A1 - Resources"
     / "randomJokes.txt"
 )
 jokes = load_jokes(jokes_file)
@@ -110,7 +109,7 @@ button_row.pack(pady=4)
 # Connect each button to the function that handles its action.
 tell_button = tk.Button(
     button_row,
-    text="TELL A JOKE",
+    text="Alexa tell me a Joke",
     command=tell_joke,
     width=15,
     font=("Trebuchet MS", 10, "bold"),
@@ -125,7 +124,7 @@ tell_button.pack(side="left", padx=5, ipadx=4, ipady=7)
 
 punchline_button = tk.Button(
     button_row,
-    text="PUNCHLINE",
+    text="Show Punchline",
     command=show_punchline,
     state="disabled",
     width=15,
@@ -144,7 +143,7 @@ bottom_row.pack(pady=(10, 0))
 
 next_button = tk.Button(
     bottom_row,
-    text="NEXT",
+    text="Next Joke",
     command=tell_joke,
     width=12,
     font=("Trebuchet MS", 9, "bold"),
@@ -157,7 +156,7 @@ next_button.pack(side="left", padx=5, ipady=6)
 
 quit_button = tk.Button(
     bottom_row,
-    text="EXIT",
+    text="Quit",
     command=window.destroy,
     width=12,
     font=("Trebuchet MS", 9, "bold"),

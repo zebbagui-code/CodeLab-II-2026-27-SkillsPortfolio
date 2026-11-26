@@ -1,12 +1,13 @@
 """A tkinter app for viewing and managing student marks."""
 
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, simpledialog
 from tkinter import ttk
 
 
-# This is the text file for the studentmarks
-FILE_NAME = "studentMarks.txt" 
+# Resolve the data file from this script rather than the user's working directory.
+FILE_NAME = Path(__file__).resolve().parent / "studentMarks.txt"
 MAXIMUM_MARK = 160
 
 

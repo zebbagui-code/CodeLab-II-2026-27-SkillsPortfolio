@@ -97,15 +97,15 @@ def displayProblem(parent, question_text, answer_callback):
     return question_label, answer_entry, feedback_label
 
 
-def isCorrectAnswer(user_answer, correct_answer):
+def isCorrect(user_answer, correct_answer):
     """Compare the submitted answer with the solution and return whether they match."""
     return user_answer == correct_answer
 
 
-def displayFinalScore(parent, score, replay_callback):
+def displayResults(parent, score, replay_callback):
     """Display the final score and select a grade and message that match the result."""
     if score >= 90:
-        grade = "A"
+        grade = "A+"
         message = "Excellent job!"
     elif score >= 80:
         grade = "B"
@@ -272,7 +272,7 @@ class MathsQuiz:
             self.feedback_label.config(text="Please enter a whole number.")
             return
 
-        if isCorrectAnswer(user_answer, self.correct_answer):
+        if isCorrect(user_answer, self.correct_answer):
             if self.attempt_number == 1:
                 self.score += POINTS_FIRST_ATTEMPT
                 self.feedback_label.config(text="Correct!")
@@ -314,7 +314,7 @@ class MathsQuiz:
     def show_final_score(self):
         """Clear the question screen and display the final result."""
         self.clear_screen()
-        displayFinalScore(self.main_frame, self.score, self.show_menu)
+        displayResults(self.main_frame, self.score, self.show_menu)
 
 
 if __name__ == "__main__":
