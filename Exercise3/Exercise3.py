@@ -1,163 +1,264 @@
-"""A tkinter app for viewing and managing student marks."""
+"""Tkinter student record manager for the Student Manager exercise."""
 
 import tkinter as tk
+from dataclasses import dataclass
 from pathlib import Path
-from tkinter import messagebox, simpledialog
-from tkinter import ttk
+from tkinter import messagebox, simpledialog, ttk
 
 
-# Resolve the data file from this script rather than the user's working directory.
-FILE_NAME = Path(__file__).resolve().parent / "studentMarks.txt"
-MAXIMUM_MARK = 160
+STUDENT_DATA_FILE = Path(__file__).resolve().parent / "studentMarks.txt"
+MAXIMUM_COURSEWORK_MARK = 60
+MAXIMUM_EXAM_MARK = 100
+MAXIMUM_OVERALL_MARK = MAXIMUM_COURSEWORK_MARK + MAXIMUM_EXAM_MARK
+
+
+@dataclass
+class StudentRecord:
+    """Store one student's validated details and calculated results."""
+
+    student_number: int
+    student_name: str
+    coursework_marks: list[int]
+    exam_mark: int
+
+    @property
+    def coursework_total(self) -> int:
+        return sum(self.coursework_marks)
+
+    @property
+    def overall_mark(self) -> int:
+        return self.coursework_total + self.exam_mark
+
+    @property
+    def percentage(self) -> float:
+        return self.overall_mark / MAXIMUM_OVERALL_MARK * 100
+
+    @property
+    def grade(self) -> str:
+        if self.percentage >= 70:
+            return "A"
+        if self.percentage >= 60:
+            return "B"
+        if self.percentage >= 50:
+            return "C"
+        if self.percentage >= 40:
+            return "D"
+        return "F"
+
+    def to_file_line(self) -> str:
+        coursework = ",".join(str(mark) for mark in self.coursework_marks)
+        return (
+            f"{self.student_number},{self.student_name},"
+            f"{coursework},{self.exam_mark}"
+        )
 
 
 class StudentManager:
-    """Display and manage student records."""
+    """Provide the GUI and operations for managing student records."""
 
-    def __init__(self, window):
+    def __init__(self, window: tk.Tk) -> None:
         self.window = window
-        self.window.title("Student Manager")
-        self.window.geometry("920x610")
-        self.window.minsize(760, 520)
-        self.window.configure(bg="#EDF7FA")
-        self.students = self.load_students()
+        self.window.title("Student Record Manager")
+        self.window.geometry("980x650")
+        self.window.minsize(820, 560)
+        self.window.configure(bg="#EDF2F5")
+
+        self.students: list[StudentRecord] = []
+        self.load_students()
         self.create_widgets()
         self.view_all_students()
 
-    def load_students(self):
-        """Read the student file and store its records in a list."""
-        student = []
-
+    def load_students(self) -> None:
+        """Load and validate records while reporting bad source-file data."""
         try:
-            with open(FILE_NAME, "r", encoding="utf-8") as student_file:
-                lines = student_file.readlines()
+            with STUDENT_DATA_FILE.open("r", encoding="utf-8") as student_file:
+                lines = [line.strip() for line in student_file if line.strip()]
 
-            # the first line is the record count, so student data starts on the second line.
-            for line in lines[1:]:
-                line = line.strip()
-                if line:
-                    student.append(line)
+            if not lines:
+                messagebox.showerror("File error", "The student data file is empty.")
+                return
+
+            try:
+                declared_count = int(lines[0])
+            except ValueError:
+                messagebox.showerror(
+                    "File error",
+                    "The first line must contain the number of students.",
+                )
+                return
+
+            invalid_lines: list[str] = []
+            for line_number, line in enumerate(lines[1:], start=2):
+                student = self.parse_student(line)
+                if student is None:
+                    invalid_lines.append(str(line_number))
+                else:
+                    self.students.append(student)
+
+            if len(self.students) != declared_count:
+                messagebox.showwarning(
+                    "Student count warning",
+                    f"The file declares {declared_count} students, "
+                    f"but {len(self.students)} valid records were loaded.",
+                )
+
+            if invalid_lines:
+                messagebox.showwarning(
+                    "Invalid records",
+                    "Skipped invalid data on lines: " + ", ".join(invalid_lines),
+                )
 
         except FileNotFoundError:
-            messagebox.showerror("Error", f"Could not find {FILE_NAME}")
-        except (OSError, UnicodeDecodeError) as error:
-            messagebox.showerror("Error", f"Could not read {FILE_NAME}: {error}")
-
-        return student
-
-    def save_students(self):
-        """Write all student lines back to the file with an updated record count."""
-        try:
-            with open(FILE_NAME, "w", encoding="utf-8") as student_file:
-                student_file.write(f"{len(self.students)}\n")
-                for student_line in self.students:
-                    student_file.write(student_line + "\n")
-
-        except OSError as error:
             messagebox.showerror(
-                "Save error",
-                f"Could not save {FILE_NAME}:\n{error}",
+                "File error",
+                f"Could not find {STUDENT_DATA_FILE}",
+            )
+        except (OSError, UnicodeDecodeError) as error:
+            messagebox.showerror(
+                "File error",
+                f"Could not read {STUDENT_DATA_FILE}: {error}",
             )
 
-    def parse_student(self, student_line):
-        """Split a saved student line into its separate field."""
-        parts = student_line.split(",")
-
-        if len(parts) != 6:
+    def parse_student(self, student_line: str) -> StudentRecord | None:
+        """Convert a correctly formatted CSV line into a StudentRecord."""
+        fields = [field.strip() for field in student_line.split(",")]
+        if len(fields) != 6:
             return None
 
         try:
-            return {
-                "code": parts[0].strip(),
-                "name": parts[1].strip(),
-                "coursework": [
-                    int(parts[2]),
-                    int(parts[3]),
-                    int(parts[4]),
-                ],
-                "exam": int(parts[5]),
-            }
+            student_number = int(fields[0])
+            coursework_marks = [int(fields[index]) for index in range(2, 5)]
+            exam_mark = int(fields[5])
         except ValueError:
             return None
 
-    def create_widgets(self):
-        """Create the menu buttons and the area used to display results."""
+        student_name = fields[1]
+        if not student_name:
+            return None
+        if not 1000 <= student_number <= 9999:
+            return None
+        if any(mark < 0 or mark > 20 for mark in coursework_marks):
+            return None
+        if not 0 <= exam_mark <= 100:
+            return None
+
+        return StudentRecord(
+            student_number,
+            student_name,
+            coursework_marks,
+            exam_mark,
+        )
+
+    def save_students(self) -> bool:
+        """Save all in-memory records and return whether the save succeeded."""
+        temporary_file = STUDENT_DATA_FILE.with_suffix(".txt.tmp")
+
+        try:
+            with temporary_file.open("w", encoding="utf-8") as student_file:
+                student_file.write(f"{len(self.students)}\n")
+                for student in self.students:
+                    student_file.write(student.to_file_line() + "\n")
+
+            temporary_file.replace(STUDENT_DATA_FILE)
+            return True
+        except OSError as error:
+            messagebox.showerror(
+                "Save error",
+                f"Could not save {STUDENT_DATA_FILE}: {error}",
+            )
+            return False
+
+    def create_widgets(self) -> None:
+        """Create the application menu, search tools, table, and summary area."""
         title = tk.Label(
             self.window,
-            text="STUDENT  /  RECORDS",
+            text="STUDENT RECORD MANAGEMENT",
             font=("Consolas", 20, "bold"),
-            fg="#EAFBFF",
+            fg="#FFFFFF",
             bg="#123A55",
             anchor="w",
             padx=18,
         )
-        title.pack(fill="x", ipady=12)
+        title.pack(fill="x", ipady=13)
 
-        main_frame = tk.Frame(self.window, bg="#EDF7FA")
+        main_frame = tk.Frame(self.window, bg="#EDF2F5")
         main_frame.pack(fill="both", expand=True, padx=14, pady=14)
 
         menu_frame = tk.Frame(main_frame, bg="#123A55", padx=12, pady=12)
         menu_frame.pack(side="left", fill="y", padx=(0, 14))
 
-        output_frame = tk.Frame(main_frame, bg="#FFFFFF", highlightthickness=1, highlightbackground="#D7E1E8")
-        output_frame.pack(side="right", fill="both", expand=True)
-
-        # Each button runs the method for one student management option.
         menu_options = [
             ("1. View all records", self.view_all_students),
             ("2. Find a student", self.find_student),
-            ("3. Highest total", self.show_highest),
-            ("4. Lowest total", self.show_lowest),
+            ("3. Highest overall mark", self.show_highest),
+            ("4. Lowest overall mark", self.show_lowest),
             ("5. Sort ascending", self.sort_ascending),
             ("6. Sort descending", self.sort_descending),
-            ("7. Add a student", self.add_student),
-            ("8. Delete a student", self.delete_student),
-            ("9. Update a student", self.update_student),
+            ("7. Add student", self.add_student),
+            ("8. Delete student", self.delete_student),
+            ("9. Update student", self.update_student),
         ]
 
         for label, action in menu_options:
             tk.Button(
                 menu_frame,
                 text=label,
-                width=21,
+                width=23,
                 command=action,
                 font=("Segoe UI", 9, "bold"),
                 fg="#123A55",
                 bg="#D6EEF5",
                 activebackground="#A9DCE8",
-                activeforeground="#123A55",
                 relief="flat",
                 anchor="w",
                 padx=10,
                 cursor="hand2",
             ).pack(fill="x", pady=3, ipady=5)
 
-        style = ttk.Style(self.window)
-        style.theme_use("clam")
-        style.configure(
-            "Student.Treeview",
-            background="#FFFFFF",
-            foreground="#123A55",
-            fieldbackground="#FFFFFF",
-            borderwidth=0,
-            rowheight=38,
+        output_frame = tk.Frame(
+            main_frame,
+            bg="#FFFFFF",
+            highlightthickness=1,
+            highlightbackground="#D7E1E8",
+        )
+        output_frame.pack(side="right", fill="both", expand=True)
+
+        search_frame = tk.Frame(output_frame, bg="#FFFFFF")
+        search_frame.pack(fill="x", padx=16, pady=(12, 6))
+
+        tk.Label(
+            search_frame,
+            text="Quick search:",
+            font=("Segoe UI", 9, "bold"),
+            fg="#123A55",
+            bg="#FFFFFF",
+        ).pack(side="left")
+
+        self.search_text = tk.StringVar()
+        search_entry = tk.Entry(
+            search_frame,
+            textvariable=self.search_text,
+            width=32,
             font=("Segoe UI", 10),
         )
-        style.configure(
-            "Student.Treeview.Heading",
-            background="#D6EEF5",
-            foreground="#123A55",
-            relief="flat",
+        search_entry.pack(side="left", padx=8)
+        search_entry.bind("<Return>", lambda event: self.search_students())
+
+        tk.Button(
+            search_frame,
+            text="Search",
+            command=self.search_students,
             font=("Segoe UI", 9, "bold"),
-        )
-        style.map(
-            "Student.Treeview",
-            background=[("selected", "#A9DCE8")],
-            foreground=[("selected", "#123A55")],
-        )
+            fg="#FFFFFF",
+            bg="#087EA4",
+            activebackground="#05657F",
+            relief="flat",
+            padx=10,
+            pady=4,
+        ).pack(side="left")
 
         header_frame = tk.Frame(output_frame, bg="#FFFFFF")
-        header_frame.pack(fill="x", padx=16, pady=(14, 8))
+        header_frame.pack(fill="x", padx=16, pady=(6, 8))
 
         self.output_heading = tk.Label(
             header_frame,
@@ -184,7 +285,7 @@ class StudentManager:
 
         columns = (
             "name",
-            "code",
+            "number",
             "coursework",
             "exam",
             "total",
@@ -198,23 +299,35 @@ class StudentManager:
             style="Student.Treeview",
         )
 
-        headings = {
-            "name": ("STUDENT NAME", 180),
-            "code": ("NUMBER", 90),
-            "coursework": ("COURSEWORK", 105),
-            "exam": ("EXAM", 75),
-            "total": ("TOTAL", 75),
-            "percentage": ("PERCENTAGE", 105),
-            "grade": ("GRADE", 65),
-        }
-        for column, (heading, width) in headings.items():
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
+        style.configure(
+            "Student.Treeview",
+            background="#FFFFFF",
+            foreground="#123A55",
+            fieldbackground="#FFFFFF",
+            rowheight=38,
+            font=("Segoe UI", 10),
+        )
+        style.configure(
+            "Student.Treeview.Heading",
+            background="#D6EEF5",
+            foreground="#123A55",
+            font=("Segoe UI", 9, "bold"),
+        )
+
+        headings = [
+            ("name", "STUDENT NAME", 180),
+            ("number", "NUMBER", 90),
+            ("coursework", "COURSEWORK", 105),
+            ("exam", "EXAM", 75),
+            ("total", "TOTAL", 75),
+            ("percentage", "PERCENTAGE", 105),
+            ("grade", "GRADE", 65),
+        ]
+        for column, heading, width in headings:
             self.output.heading(column, text=heading)
-            self.output.column(
-                column,
-                width=width,
-                minwidth=65,
-                anchor="center",
-            )
+            self.output.column(column, width=width, minwidth=65, anchor="center")
         self.output.column("name", anchor="w")
 
         scrollbar = ttk.Scrollbar(
@@ -226,239 +339,196 @@ class StudentManager:
         self.output.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-    def coursework_total(self, student):
-        """Add together a student's three coursework marks."""
-        return sum(student["coursework"])
-
-    def total_mark(self, student):
-        """Add the coursework total and exam mark."""
-        return self.coursework_total(student) + student["exam"]
-
-    def percentage(self, student):
-        """Calculate the percentage from the overall mark out of 160."""
-        return self.total_mark(student) / MAXIMUM_MARK * 100
-
-    def grade(self, student):
-        """Return the letter grade that matches the student's percentage."""
-        mark_percentage = self.percentage(student)
-
-        if mark_percentage >= 70:
-            return "A"
-        elif mark_percentage >= 60:
-            return "B"
-        elif mark_percentage >= 50:
-            return "C"
-        elif mark_percentage >= 40:
-            return "D"
-        else:
-            return "F"
-
-    def format_student(self, student):
-        """Create a readable summary of one student's results."""
-        coursework = self.coursework_total(student)
-
-        return (
-            f"Name: {student['name']}\n"
-            f"Student number: {student['code']}\n"
-            f"Coursework total: {coursework} / 60\n"
-            f"Exam mark: {student['exam']} / 100\n"
-            f"Overall mark: {self.total_mark(student)} / 160\n"
-            f"Percentage: {self.percentage(student):.1f}%\n"
-            f"Grade: {self.grade(student)}\n"
-            f"{'-' * 42}\n"
-        )
-
-    def show_records(self, student_lines, heading):
-        """Display selected records in a table and calculate the average percentage."""
+    def show_records(
+        self,
+        records: list[StudentRecord],
+        heading: str,
+    ) -> None:
+        """Display records and calculate a summary for the displayed selection."""
         self.output_heading.config(text=heading)
 
-        for item in self.output.get_children():
-            self.output.delete(item)
-
-        records = []
-
-        for student_line in student_lines:
-            student = self.parse_student(student_line)
-
-            if student is not None:
-                records.append(student)
+        for table_item in self.output.get_children():
+            self.output.delete(table_item)
 
         if not records:
             self.output_summary.config(text="0 records")
             return
 
         for student in records:
-            coursework = self.coursework_total(student)
             self.output.insert(
                 "",
                 tk.END,
                 values=(
-                    student["name"],
-                    student["code"],
-                    f"{coursework} / 60",
-                    f"{student['exam']} / 100",
-                    f"{self.total_mark(student)} / 160",
-                    f"{self.percentage(student):.1f}%",
-                    self.grade(student),
+                    student.student_name,
+                    student.student_number,
+                    f"{student.coursework_total} / 60",
+                    f"{student.exam_mark} / 100",
+                    f"{student.overall_mark} / 160",
+                    f"{student.percentage:.1f}%",
+                    student.grade,
                 ),
             )
 
-        average = sum(self.percentage(student) for student in records) / len(records)
+        average_percentage = (
+            sum(student.percentage for student in records) / len(records)
+        )
+        record_word = "record" if len(records) == 1 else "records"
         self.output_summary.config(
-            text=f"{len(records)} record{'s' if len(records) != 1 else ''}  |  Average {average:.1f}%"
+            text=(
+                f"{len(records)} {record_word}  |  "
+                f"Average {average_percentage:.1f}%"
+            )
         )
 
-    def view_all_students(self):
-        """Show every student's results and the class average."""
+    def view_all_students(self) -> None:
         self.show_records(self.students, "All Student Records")
 
-    def find_student_by_code(self, window_title):
-        """Ask for a student number and return the matching line of data."""
-        code = simpledialog.askstring(
-            window_title,
-            "Enter the student's number:",
+    def search_students(self) -> None:
+        """Search by full or partial name, or by exact student number."""
+        search_term = self.search_text.get().strip().lower()
+        if not search_term:
+            self.view_all_students()
+            return
+
+        matching_students = [
+            student
+            for student in self.students
+            if search_term in student.student_name.lower()
+            or search_term == str(student.student_number)
+        ]
+        self.show_records(matching_students, f"Search Results: {search_term}")
+
+    def find_student_by_number(self, dialog_title: str) -> StudentRecord | None:
+        student_number_text = simpledialog.askstring(
+            dialog_title,
+            "Enter a student number or name:",
             parent=self.window,
         )
-
-        if code is None:
+        if student_number_text is None:
             return None
 
-        code = code.strip()
-
-        for student_line in self.students:
-            student = self.parse_student(student_line)
-
-            if student is not None and student["code"] == code:
-                return student_line
-
-        messagebox.showinfo(
-            "Student not found",
-            f"No student has the number {code}.",
-        )
-        return None
-
-    def find_student(self):
-        """Find a student by number and display their results."""
-        student_line = self.find_student_by_code("Find a student")
-
-        if student_line is not None:
-            self.show_records([student_line], "Student Record")
-
-    def show_highest(self):
-        """Display the student with the highest combined mark."""
-        valid_lines = [
-            line for line in self.students if self.parse_student(line) is not None
+        search_text = student_number_text.strip().lower()
+        matches = [
+            student
+            for student in self.students
+            if search_text in student.student_name.lower()
+            or search_text == str(student.student_number)
         ]
 
-        if not valid_lines:
-            messagebox.showinfo("No records", "There are no valid student records.")
-            return
+        if not matches:
+            messagebox.showinfo("Student not found", "No matching student was found.")
+            return None
+        if len(matches) == 1:
+            return matches[0]
 
-        highest = max(
-            valid_lines,
-            key=lambda line: self.total_mark(self.parse_student(line)),
+        selection = simpledialog.askinteger(
+            "Choose a student",
+            "More than one student matched. Enter the exact student number:",
+            parent=self.window,
         )
+        if selection is None:
+            return None
+        return next(
+            (student for student in matches if student.student_number == selection),
+            None,
+        )
+
+    def find_student(self) -> None:
+        student = self.find_student_by_number("Find a student")
+        if student is not None:
+            self.show_records([student], "Individual Student Record")
+
+    def show_highest(self) -> None:
+        if not self.students:
+            messagebox.showinfo("No records", "There are no student records.")
+            return
+        highest = max(self.students, key=lambda student: student.overall_mark)
         self.show_records([highest], "Student with the Highest Total")
 
-    def show_lowest(self):
-        """Display the student with the lowest combined mark."""
-        valid_lines = [
-            line for line in self.students if self.parse_student(line) is not None
-        ]
-
-        if not valid_lines:
-            messagebox.showinfo("No records", "There are no valid student records.")
+    def show_lowest(self) -> None:
+        if not self.students:
+            messagebox.showinfo("No records", "There are no student records.")
             return
-
-        lowest = min(
-            valid_lines,
-            key=lambda line: self.total_mark(self.parse_student(line)),
-        )
+        lowest = min(self.students, key=lambda student: student.overall_mark)
         self.show_records([lowest], "Student with the Lowest Total")
 
-    def sort_ascending(self):
-        """Show records ordered from the lowest total mark to the highest."""
+    def sort_ascending(self) -> None:
         sorted_students = sorted(
             self.students,
-            key=lambda line: self.total_mark(self.parse_student(line))
-            if self.parse_student(line) is not None
-            else -1,
+            key=lambda student: student.overall_mark,
         )
         self.show_records(sorted_students, "Records Sorted: Ascending")
 
-    def sort_descending(self):
-        """Show records ordered from the highest total mark to the lowest."""
+    def sort_descending(self) -> None:
         sorted_students = sorted(
             self.students,
-            key=lambda line: self.total_mark(self.parse_student(line))
-            if self.parse_student(line) is not None
-            else -1,
+            key=lambda student: student.overall_mark,
             reverse=True,
         )
         self.show_records(sorted_students, "Records Sorted: Descending")
 
-    def ask_for_details(self, old_student=None):
-        """Collect and check a student's number, name, and marks."""
-        if old_student:
-            old_code = old_student["code"]
-            old_name = old_student["name"]
-        else:
-            old_code = ""
-            old_name = ""
-
-        code = simpledialog.askinteger(
+    def ask_for_details(
+        self,
+        existing_student: StudentRecord | None = None,
+    ) -> StudentRecord | None:
+        """Ask for, validate, and return a complete student record."""
+        initial_number = (
+            existing_student.student_number
+            if existing_student is not None
+            else None
+        )
+        student_number = simpledialog.askinteger(
             "Student details",
             "Enter a student number from 1000 to 9999:",
-            initialvalue=int(old_code) if old_code else None,
+            initialvalue=initial_number,
             minvalue=1000,
             maxvalue=9999,
             parent=self.window,
         )
-
-        if code is None:
+        if student_number is None:
             return None
 
-        for student_line in self.students:
-            student = self.parse_student(student_line)
+        for student in self.students:
+            if (
+                student.student_number == student_number
+                and student is not existing_student
+            ):
+                messagebox.showerror(
+                    "Number already used",
+                    "Each student must have a unique student number.",
+                )
+                return None
 
-            if student is not None and student["code"] == str(code):
-                is_current_student = old_student and student["code"] == old_code
-
-                if not is_current_student:
-                    messagebox.showerror(
-                        "Number already used",
-                        "Each student must have a unique student number.",
-                    )
-                    return None
-
-        name = simpledialog.askstring(
+        initial_name = (
+            existing_student.student_name
+            if existing_student is not None
+            else ""
+        )
+        student_name = simpledialog.askstring(
             "Student details",
             "Enter the student's name:",
-            initialvalue=old_name,
+            initialvalue=initial_name,
             parent=self.window,
         )
-
-        if name is None:
+        if student_name is None:
             return None
 
-        name = name.strip()
-
-        if not name or "," in name:
+        student_name = student_name.strip()
+        if not student_name or "," in student_name:
             messagebox.showerror(
                 "Invalid name",
-                "Enter a name without commas.",
+                "Enter a name that does not contain a comma.",
             )
             return None
 
-        coursework = []
-
+        coursework_marks: list[int] = []
         for mark_number in range(1, 4):
-            if old_student:
-                initial_mark = old_student["coursework"][mark_number - 1]
-            else:
-                initial_mark = 0
-
-            mark = simpledialog.askinteger(
+            initial_mark = (
+                existing_student.coursework_marks[mark_number - 1]
+                if existing_student is not None
+                else None
+            )
+            coursework_mark = simpledialog.askinteger(
                 "Student details",
                 f"Enter coursework mark {mark_number} (0 to 20):",
                 initialvalue=initial_mark,
@@ -466,18 +536,16 @@ class StudentManager:
                 maxvalue=20,
                 parent=self.window,
             )
-
-            if mark is None:
+            if coursework_mark is None:
                 return None
+            coursework_marks.append(coursework_mark)
 
-            coursework.append(mark)
-
-        if old_student:
-            initial_exam = old_student["exam"]
-        else:
-            initial_exam = 0
-
-        exam = simpledialog.askinteger(
+        initial_exam = (
+            existing_student.exam_mark
+            if existing_student is not None
+            else None
+        )
+        exam_mark = simpledialog.askinteger(
             "Student details",
             "Enter the exam mark (0 to 100):",
             initialvalue=initial_exam,
@@ -485,65 +553,63 @@ class StudentManager:
             maxvalue=100,
             parent=self.window,
         )
-
-        if exam is None:
+        if exam_mark is None:
             return None
 
-        # Builds the comma-separated line in the same format used by the text file.
-        return f"{code},{name},{coursework[0]},{coursework[1]},{coursework[2]},{exam}"
-
-    def add_student(self):
-        """Add a new student line and save the updated records."""
-        student_line = self.ask_for_details()
-
-        if student_line is None:
-            return
-
-        self.students.append(student_line)
-        self.save_students()
-        self.view_all_students()
-        messagebox.showinfo("Student added", "The student record was added.")
-
-    def delete_student(self):
-        """Delete the selected student after asking the user to confirm."""
-        student_line = self.find_student_by_code("Delete a student")
-
-        if student_line is None:
-            return
-
-        student = self.parse_student(student_line)
-        confirm = messagebox.askyesno(
-            "Confirm deletion",
-            f"Delete the record for {student['name']}?",
+        return StudentRecord(
+            student_number,
+            student_name,
+            coursework_marks,
+            exam_mark,
         )
 
-        if confirm:
-            self.students.remove(student_line)
-            self.save_students()
+    def add_student(self) -> None:
+        new_student = self.ask_for_details()
+        if new_student is None:
+            return
+
+        self.students.append(new_student)
+        if self.save_students():
             self.view_all_students()
+            messagebox.showinfo("Student added", "The student record was added.")
 
-    def update_student(self):
-        """Replace a student's line with updated details and save the file."""
-        student_line = self.find_student_by_code("Update a student")
-
-        if student_line is None:
+    def delete_student(self) -> None:
+        student = self.find_student_by_number("Delete a student")
+        if student is None:
             return
 
-        old_student = self.parse_student(student_line)
-        updated_line = self.ask_for_details(old_student)
-
-        if updated_line is None:
+        confirmed = messagebox.askyesno(
+            "Confirm deletion",
+            f"Delete the record for {student.student_name}?",
+        )
+        if not confirmed:
             return
 
-        index = self.students.index(student_line)
-        self.students[index] = updated_line
-        self.save_students()
-        self.view_all_students()
-        messagebox.showinfo("Student updated", "The student record was updated.")
+        self.students.remove(student)
+        if self.save_students():
+            self.view_all_students()
+            messagebox.showinfo("Student deleted", "The student record was deleted.")
+
+    def update_student(self) -> None:
+        old_student = self.find_student_by_number("Update a student")
+        if old_student is None:
+            return
+
+        updated_student = self.ask_for_details(old_student)
+        if updated_student is None:
+            return
+
+        student_index = self.students.index(old_student)
+        self.students[student_index] = updated_student
+        if self.save_students():
+            self.view_all_students()
+            messagebox.showinfo(
+                "Student updated",
+                "The student record was updated.",
+            )
 
 
-def main():
-    """Create the window and start Tkinter's event loop."""
+def main() -> None:
     window = tk.Tk()
     StudentManager(window)
     window.mainloop()
@@ -551,4 +617,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-                
