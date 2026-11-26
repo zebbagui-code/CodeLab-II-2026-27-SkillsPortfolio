@@ -12,8 +12,8 @@ POINTS_SECOND_ATTEMPT = 5
 # Each difficulty maps to the inclusive minimum and maximum used when generating numbers.
 DIFFICULTY_RANGES = {
     "Easy": (0, 9),
-    "Medium": (10, 99),
-    "Hard": (1000, 9999),
+    "Moderate": (10, 99),
+    "Advanced": (1000, 9999),
 }
 
 
@@ -44,8 +44,8 @@ def display_menu(parent, choose_difficulty):
 
     descriptions = {
         "Easy": "Single-digit numbers",
-        "Medium": "Two-digit numbers",
-        "Hard": "Four-digit numbers",
+        "Moderate": "Two-digit numbers",
+        "Advanced": "Four-digit numbers",
     }
 
     for difficulty, description in descriptions.items():
